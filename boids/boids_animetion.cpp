@@ -350,7 +350,6 @@ int main(int argc, char const *argv[])
 
     // アニメーションの作成
     FILE *gp, *fp;
-    int nod;
 
     // gnuplot 設定
     if ((gp = popen("gnuplot -persist", "w")) == NULL)
@@ -359,15 +358,17 @@ int main(int argc, char const *argv[])
         exit(EXIT_FAILURE);
     }
 
+    fprintf(gp, "reset \n");
     fprintf(gp, "set size square \n");
-    fprintf(gp, "set xrange [-1.5:1.5] \n");
-    fprintf(gp, "set yrange [-1.5:1.5] \n");
-    fprintf(gp, "set zrange [-1.5:1.5] \n");
+    fprintf(gp, "set xrange [-2.0:2.0] \n");
+    fprintf(gp, "set yrange [-2.0:2.0] \n");
+    fprintf(gp, "set zrange [-2.0:2.0] \n");
     fprintf(gp, "unset key \n");
-    fprintf(gp, "unset grid \n");
+    // fprintf(gp, "unset style line \n");
     fprintf(gp, "set border lc rgb 'white' \n");
     fprintf(gp, "set object 1 rect behind from screen 0,0 to screen 1,1 fc rgb '#333333' \n");
-    
+    fprintf(gp, "set style arrow 1 size character 1, 10 filled lt rgb 'white' lw 0.1 \n");
+
     fprintf(gp, "set term gif animate \n");
     fprintf(gp, "set output 'boids_animetion.gif' \n");
 
@@ -421,16 +422,19 @@ int main(int argc, char const *argv[])
         fp = fopen("boids_animetion.dat", "w");
         // x = update_x(x, v);
         // x の更新
+        
         for (int i = 0; i < N; i++)
         {
+            fprintf(fp, "%f %f %f %f %f %f \n", x[i][0], x[i][1], x[i][2], 3*v[i][0], 3*v[i][1], 3*v[i][2]);
             for (int j = 0; j < 3; j++)
             {
-                x[i][j] += v[i][j];
+                x[i][j] = x[i][j] + v[i][j];
             }
-            fprintf(fp, "%f %f %f \n", x[i][0], x[i][1], x[i][2]);
+            
         }
         
-        fprintf(gp, "splot 'boids_animetion.dat' with points ps 0.5 pt 7 lc 'white' \n");
+
+        fprintf(gp, "splot 'boids_animetion.dat' with vectors arrowstyle 1 \n");
         fclose(fp);
         fflush(gp);
 
