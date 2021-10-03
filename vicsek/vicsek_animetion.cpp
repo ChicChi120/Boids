@@ -77,7 +77,7 @@ vector<double> norm_m(vector<vector<double> > a){
     vector<double> b(a.size());
     for (int i = 0; i < a.size(); i++)
     {
-        b[i] = sqrt(pow(a[i][0], 2) + pow(a[i][1], 2) + pow(a[i][2], 2));
+        b[i] = sqrt(pow(a[i][0], 2) + pow(a[i][1], 2));
     }
     
     return b;
@@ -130,38 +130,47 @@ double delta_theta(double a){
     return a;
 }
 
-vector<double> update_v(double v0, double theta){
-    vector<double> v_new(2);
+vector<vector<double> > update_velocity(double v0, vector<double> theta, vector<vector<double> > v){
 
-    v_new[0] = v0 * cos(theta);
-    v_new[1] = v0 * sin(theta);
-
-    return v_new;
-}
-
-vector<double> update_x(vector<double> x, vector<double> v){
-    vector<double> x_new(2);
-
-    for (int i = 0; i < x_new.size(); i++)
+    for (int i = 0; i < v.size(); i++)
     {
-        x_new[i] = x[i] + v[i];  // delta_t = tmax / 100 = 1.0
+        v[i][0] = v0 * cos(theta[i]);
+        v[i][1] = v0 * sin(theta[i]);
     }
-    
-    return x_new;
+
+    return v;
 }
 
-
-vector<double> boundary_condition(vector<double> x, double l){
+vector<vector<double> > update_position(vector<vector<double> > x, vector<vector<double> > v){
 
     for (int i = 0; i < x.size(); i++)
     {
-        if (x[i] > l)
+        for (int j = 0; j < x[0].size(); j++)
         {
-            x[i] = x[i] - 2.0*l;
+            x[i][j] += v[i][j];
+        }
+        
+    }
+    
+    return x;
+}
 
-        }else if (x[i] < -l)
+
+vector<vector<double> > boundary_condition(vector<vector<double> > x, double l){
+
+    for (int i = 0; i < x.size(); i++)
+    {
+        for (int j = 0; j < x[0].size(); j++)
         {
-            x[i] = x[i] + 2.0*l;
+            if (x[i][j] > l)
+            {
+                x[i][j] -= 2.0*l;
+
+            }else if (x[i][j] < -l)
+            {
+                x[i][j] += 2.0*l;
+            }
+            
         }
         
     }
@@ -169,37 +178,22 @@ vector<double> boundary_condition(vector<double> x, double l){
     return x;
 }
 
-vector<vector<double> > save_m(vector<double> xi, vector<vector<double> > x, int n){
-
-    for (int i = 0; i < xi.size(); i++)
-    {
-        x[n][i] = xi[i];
-    }
-    
-    return x;
-}
-
-
-
 
 
 int main(int argc, char const *argv[])
 {
-
     // シミュレーションパラメタ
-    const int N = 256;
+    const int N = 512;
     const double L = 1.0;
     const int tmax = 300;
-    const double r = 0.04;
-    const double v0 = 0.02;
+    const double r = 0.06;
+    const double v0 = 0.03;
     const double eta = 0.1 * 3.14159265;
 
     // エージェントの状態配列
     vector<vector<double> > x(N, vector<double>(2));
-    vector<vector<double> > x_new(N, vector<double>(2));
     vector<vector<double> > v(N, vector<double>(2));
-    vector<vector<double> > v_new(N, vector<double>(2));
-    double theta = 0.0;
+    vector<double> theta(N);
 
     vector<double> x_this(2);
     vector<double> v_this(2);
@@ -243,27 +237,19 @@ int main(int argc, char const *argv[])
             x_dis = subtraction(x_that, x_this);
             dist = norm_m(x_dis);
 
-            theta = arctan(dist, v_this, v_that, r) + delta_theta(eta);
-            v_this = update_v(v0, theta);
-            x_this = update_x(x_this, v_this);
-            
-            x_this = boundary_condition(x_this, L);
-
-            x_new = save_m(x_this, x_new, n);
-            v_new = save_m(v_this, v_new, n);
+            theta[n] = arctan(dist, v_this, v_that, r) + delta_theta(eta);
         }
         
+        v = update_velocity(v0, theta, v);
+        x = update_position(x, v);
+
+        x = boundary_condition(x, L);
+
 
         fp = fopen("xypositions.dat", "w");
 
         for (int p = 0; p < x.size(); p++)
         {
-            for (int q = 0; q < x[0].size(); q++)
-            {
-                x[p][q] = x_new[p][q];
-                v[p][q] = v_new[p][q];
-            }
-
             fprintf(fp, "%f %f %f %f \n", x[p][0], x[p][1], v[p][0], v[p][1]);
             
         }        
