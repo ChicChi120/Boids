@@ -3,6 +3,9 @@
 #include <random>
 #include <math.h>
 
+#define N 256
+#define tmax 500
+
 using namespace std;
 
 double printvector(const vector<double> a){
@@ -27,37 +30,82 @@ double printmatrix(const vector<vector<double> > a){
     return 0;  
 }
 
-// 一様分布に従う乱数1
-vector<vector<double> > uniform_matrix(vector<vector<double> > a){
+vector<double> uniform_vector(vector<double> a, double min_v){
     random_device seed_gen;
     default_random_engine engine(seed_gen());
     uniform_real_distribution<> rand01(0.0, 1.0);
 
-    for (int i = 0; i < a.size(); i++)
+    for (int i = 0; i < a.size()/2; i++)
     {
-        for (int j = 0; j < 3; j++)
-        {
-            a[i][j] = rand01(engine) * 2.0 - 1.0;
-        }
+        a[i] = (rand01(engine) * 2.0 - 1.0);
     }
+    for (int i = a.size()/2; i < a.size(); i++)
+    {
+        a[i] = (rand01(engine) * 2.0 - 1.0) * min_v;
+    }
+    
+
     return a;
 }
 
-// 一様分布に従う乱数2
-vector<vector<double> > uniform_matrix_v(vector<vector<double> > a, double min_vel){
-    random_device seed_gen;
-    default_random_engine engine(seed_gen());
-    uniform_real_distribution<> rand01(0.0, 1.0);
 
-    for (int i = 0; i < a.size(); i++)
+vector<vector<double> > xmatrix(vector<double> xv, vector<vector<double> > x){
+
+    for (int i = 0; i < N; i++)
     {
         for (int j = 0; j < 3; j++)
         {
-            a[i][j] = (rand01(engine) * 2.0 - 1.0) * min_vel;
+            x[i][j] = xv[3*i + j];
         }
+        
     }
-    return a;
+    
+    return x;
 }
+
+vector<vector<double> > vmatrix(vector<double> xv, vector<vector<double> > v){
+
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            v[i][j] = xv[3*i + xv.size()/2 + j];
+        }
+        
+    }
+    
+    return v;
+}
+
+vector<double> xvector(vector<double> xv, vector<vector<double> > x){
+
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            xv[3*i + j] = x[i][j];
+        }
+        
+    }
+    
+    return xv;
+}
+
+vector<double> vvector(vector<double> xv, vector<vector<double> > v){
+
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            xv[3*i + xv.size()/2 + j] = v[i][j];
+        }
+        
+    }
+    
+    return xv;
+}
+
+
 
 vector<double> matrix_vector(vector<vector<double> > a, int b){
     vector<double> c(3);
@@ -184,7 +232,6 @@ vector<double> agent_list(vector<vector<double> > x, vector<double> a, double b,
 
 vector<vector<double> > update_force1(vector<vector< double> > x, int n, double a, vector<double> b, vector<double> c){
     double d = 0.0;
-    // vector<double> v(3);
 
     if (b.size() > 0)
     {
@@ -194,17 +241,10 @@ vector<vector<double> > update_force1(vector<vector< double> > x, int n, double 
             {
                 d += b[i + 3*j];
             }
-            // v[i] = d/(b.size()/3);
+
             x[n][i] = a * (d / (b.size()/3) - c[i]);
             d = 0;
         }
-
-        /*
-        for (int i = 0; i < 3; i++)
-        {
-            x[n][i] = a * (v[i] - c[i]);
-        }
-        */
 
     }else{
         for (int i = 0; i < 3; i++)
@@ -277,31 +317,18 @@ vector<vector<double> > update_velocity(vector<vector<double> > v, vector<vector
     return v;
 }
 
-vector<vector<double> > update_x(vector<vector<double> > a, vector<vector<double> > b){
 
-    for (int i = 0; i < a.size(); i++)
-    {
-        for (int j = 0; j < a[0].size(); j++)
-        {
-            a[i][j] += b[i][j];
-            // fprint(fp, );
-        }    
-    }
+vector<double> boids(vector<double> xv){
 
-    return a;
-}
-
-
-int main(int argc, char const *argv[])
-{
-    
     // シミュレーションパラメタ
-    const int N = 256;
-    const int maxgeneration = 300;
+    vector<vector<double> > x(N, vector<double>(3));
+    vector<vector<double> > v(N, vector<double>(3));
+    x = xmatrix(xv, x);
+    v = vmatrix(xv, v);
 
     // 力の強さ
     const double cohesion_force = 0.005;
-    const double separation_force = 0.5;
+    const double separation_force = 0.50;
     const double aligment_force = 0.01;
 
     // 力の働く距離
@@ -320,12 +347,6 @@ int main(int argc, char const *argv[])
 
     // 境界で働く力
     const double boundary_force = 0.001;
-
-    // 位置と速度
-    vector<vector<double> > x(N, vector<double>(3));
-    vector<vector<double> > v(N, vector<double>(3));
-    x = uniform_matrix(x);
-    v = uniform_matrix_v(v, min_vel);
 
     // cohesion, separation, aligment の3つの力を代入する変数
     vector<vector<double> > dv_coh(N, vector<double>(3));
@@ -348,102 +369,112 @@ int main(int argc, char const *argv[])
     vector<double> ali_agent_v;
     double v_abs = 0.0;
 
-    // アニメーションの作成
-    FILE *gp, *fp;
+    for (int i = 0; i < N; i++)
+    {
+        x_this = matrix_vector(x, i);
+        v_this = matrix_vector(v, i);
 
-    // gnuplot 設定
+        x_that = matrix_delete(x, i);
+        v_that = matrix_delete(v, i);
+
+        x_dis = subtraction(x_that, x_this);
+        dist = norm_m(x_dis);
+        angle = arccos(div_norm(dot(v_this, transpose(x_dis)), mul_norm(norm_v(v_this), dist)));
+
+        coh_agent_x = agent_list(x_that, dist, cohesion_distance, angle, cohesion_angle);
+        sep_agent_x = agent_list(x_that, dist, separation_distance, angle, separation_angle);
+        ali_agent_v = agent_list(v_that, dist, aligment_distance, angle, aligment_angle);
+
+        dv_coh = update_force1(dv_coh, i, cohesion_force, coh_agent_x, x_this);
+        dv_sep = update_force2(dv_sep, i, separation_force, sep_agent_x, x_this);
+        dv_ali = update_force1(dv_ali, i, aligment_force, ali_agent_v, v_this);
+        dv_boundary = update_force3(dv_boundary, i, boundary_force, x_this);
+    }
+
+    // update v
+    v = update_velocity(v, dv_coh, dv_sep, dv_ali, dv_boundary);
+    for (int i = 0; i < N; i++)
+    {
+        v_abs = norm_v(v[i]);
+        if (v_abs < min_vel)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                v[i][j] = min_vel * v[i][j] / v_abs;
+            }
+        }
+        else if (v_abs > max_vel)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                v[i][j] = max_vel * v[i][j] / v_abs;
+            }  
+        } 
+        
+    }
+
+    // update x
+    for (int i = 0; i < N; i++)
+    {
+        for (int j = 0; j < 3; j++)
+        {
+            x[i][j] = x[i][j] + v[i][j];
+        }
+            
+    }
+
+    xv = xvector(xv, x);
+    xv = vvector(xv, v);
+
+    return xv;
+}
+
+
+
+
+int main(int argc, char const *argv[])
+{
+    FILE *gp, *fp;
     if ((gp = popen("gnuplot -persist", "w")) == NULL)
     {
         cout << "gnuplot open error" << endl;
         exit(EXIT_FAILURE);
     }
 
+    // gnuplot
     fprintf(gp, "reset \n");
-    fprintf(gp, "set size square \n");
     fprintf(gp, "set xrange [-2.0:2.0] \n");
     fprintf(gp, "set yrange [-2.0:2.0] \n");
     fprintf(gp, "set zrange [-2.0:2.0] \n");
     fprintf(gp, "unset key \n");
-    // fprintf(gp, "unset style line \n");
     fprintf(gp, "set border lc rgb 'white' \n");
     fprintf(gp, "set object 1 rect behind from screen 0,0 to screen 1,1 fc rgb '#333333' \n");
     fprintf(gp, "set style arrow 1 size character 1, 10 filled lt rgb 'white' lw 0.1 \n");
 
     fprintf(gp, "set term gif animate \n");
-    fprintf(gp, "set output 'boids_animetion.gif' \n");
+    fprintf(gp, "set output 'animetion.gif' \n");
 
+    vector<double> xv(6*N);
+    xv = uniform_vector(xv, 0.005);  // min_vel = 0.005
 
-    for (int generation = 0; generation < maxgeneration; generation++)
+    for (int t = 0; t < tmax; t++)
     {
-        
-        for (int i = 0; i < N; i++)
+        xv = boids(xv);
+
+        fp = fopen("boid_animetion.dat", "w");
+        for (int i = 0; i < 3*N; i+=3)
         {
-            x_this = matrix_vector(x, i);
-            v_this = matrix_vector(v, i);
-
-            x_that = matrix_delete(x, i);
-            v_that = matrix_delete(v, i);
-
-            x_dis = subtraction(x_that, x_this);
-            dist = norm_m(x_dis);
-            angle = arccos(div_norm(dot(v_this, transpose(x_dis)), mul_norm(norm_v(v_this), dist)));
-
-            coh_agent_x = agent_list(x_that, dist, cohesion_distance, angle, cohesion_angle);
-            sep_agent_x = agent_list(x_that, dist, separation_distance, angle, separation_angle);
-            ali_agent_v = agent_list(v_that, dist, aligment_distance, angle, aligment_angle);
-
-            dv_coh = update_force1(dv_coh, i, cohesion_force, coh_agent_x, x_this);
-            dv_sep = update_force2(dv_sep, i, separation_force, sep_agent_x, x_this);
-            dv_ali = update_force1(dv_ali, i, aligment_force, ali_agent_v, v_this);
-            dv_boundary = update_force3(dv_boundary, i, boundary_force, x_this);
-        }
-
-        v = update_velocity(v, dv_coh, dv_sep, dv_ali, dv_boundary);
-        for (int i = 0; i < N; i++)
-        {
-            v_abs = norm_v(v[i]);
-            if (v_abs < min_vel)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-                    v[i][j] = min_vel * v[i][j] / v_abs;
-                }
-            }else if (v_abs > max_vel)
-            {
-                for (int j = 0; j < 3; j++)
-                {
-                    v[i][j] = max_vel * v[i][j] / v_abs;
-                }  
-            } 
-        
-        }
-        // printmatrix(v);
-
-        fp = fopen("boids_animetion.dat", "w");
-        // x = update_x(x, v);
-        // x の更新
-        
-        for (int i = 0; i < N; i++)
-        {
-            fprintf(fp, "%f %f %f %f %f %f \n", x[i][0], x[i][1], x[i][2], 3*v[i][0], 3*v[i][1], 3*v[i][2]);
-            for (int j = 0; j < 3; j++)
-            {
-                x[i][j] = x[i][j] + v[i][j];
-            }
-            
-        }
-        
-
-        fprintf(gp, "splot 'boids_animetion.dat' with vectors arrowstyle 1 \n");
+            fprintf(fp, "%lf %lf %lf %lf %lf %lf \n", xv[i], xv[i + 1], xv[i + 2], 3.0*xv[i+3*N], 3.0*xv[i+3*N + 1], 3.0*xv[i+3*N + 2]);
+        }   
         fclose(fp);
+
+        fprintf(gp, "splot 'boid_animetion.dat' with vectors arrowstyle 1 \n");
         fflush(gp);
-
-        // printmatrix(x);
     }
-    
-    fprintf(gp, "exit \n");
-    fflush(gp);
-    pclose(gp);
 
+    fprintf(gp, "exit \n");
+    pclose(gp);
+    
+    
     return 0;
 }
